@@ -1,0 +1,27 @@
+data/
+*.csv
+*.zip
+*.parquet
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+*.pkl
+*.joblib
+*.pt
+*.onnx
+mlruns/
+wandb/
+
+.env
+*.json          # catches GCP service account key files — critical
+!pyproject.toml # un-ignore this one
+
+.ipynb_checkpoints/
+
+.DS_Store
