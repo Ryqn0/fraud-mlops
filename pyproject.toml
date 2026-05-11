@@ -10,11 +10,13 @@ dependencies = [
     "google-cloud-pubsub>=2.20.0",
     "google-cloud-bigquery>=3.20.0",
     "google-cloud-storage>=2.16.0",
+    "google-cloud-bigquery-storage>=2.24.0",
 
     # Data
     "pandas>=2.2.0",
     "numpy>=1.26.0",
     "pyarrow>=15.0.0",        # required for BQ + parquet
+    "db-dtypes>=1.2.0",
 
     # ML (later tickets)
     "scikit-learn>=1.4.0",

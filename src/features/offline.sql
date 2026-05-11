@@ -40,7 +40,7 @@ static_features AS (
 
         -- TODO 2b: balance discrepancy feature
         -- Formula: (old_balance_org - amount) - new_balance_org
-        (old_balance_org - amount) - new_balance_org AS balance_diff_org,
+        (old_balance_org - amount) - new_balance_org AS balance_diff_orig,
 
         -- TODO 2c: account_drained flag
         -- Condition: old_balance_org > 0 AND new_balance_org = 0
@@ -91,7 +91,7 @@ SELECT
     s.amount,
     s.type_is_transfer,
     s.type_is_cashout,
-    s.balance_diff_org,
+    s.balance_diff_orig,
     s.account_drained,
     v.tx_amount_sum_24h,
     v.tx_count_24h,
