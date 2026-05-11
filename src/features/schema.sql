@@ -70,3 +70,17 @@ CREATE TABLE IF NOT EXISTS `fraud-mlops-portfolio.fraud.predictions` (
     feedback_at     TIMESTAMP   OPTIONS(description="When ground truth was confirmed. NULL until then.")
 )
 OPTIONS(description="Model predictions + delayed ground truth. Used for drift monitoring.");
+
+-- ── 4. Drift reports (one row per feature per monitoring run) ─────────────────
+CREATE TABLE IF NOT EXISTS `fraud-mlops-portfolio.fraud.drift_reports` (
+    report_id       STRING    OPTIONS(description="UUID for this monitoring run"),
+    computed_at     TIMESTAMP OPTIONS(description="When the report was computed"),
+    reference_rows  INT64     OPTIONS(description="Number of rows in reference set"),
+    current_rows    INT64     OPTIONS(description="Number of rows in current set"),
+    feature         STRING    OPTIONS(description="Feature name"),
+    drift_score     FLOAT64   OPTIONS(description="Statistical test score (KS, PSI, chi2)"),
+    drift_detected  BOOL      OPTIONS(description="True if drift detected at threshold"),
+    stat_test       STRING    OPTIONS(description="Test used: ks, psi, chi2"),
+    dataset_drift   BOOL      OPTIONS(description="True if >= 50% of features drifted")
+)
+OPTIONS(description="Feature drift monitoring. One row per feature per run.");
