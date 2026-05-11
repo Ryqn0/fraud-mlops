@@ -1,3 +1,52 @@
+┌─────────────────────────────────┐
+                      │  Replay producer (local Python) │
+                      │  reads PaySim CSV, paces it     │
+                      │  to look like a real stream     │
+                      └──────────────┬──────────────────┘
+                                     │ publish
+                                     ▼
+                        ┌────────────────────────────┐
+                        │  Pub/Sub topic: txns       │
+                        └─────┬──────────────────┬───┘
+                              │                  │
+                  push sub    │                  │ pull sub
+                              ▼                  ▼
+              ┌──────────────────────┐   ┌─────────────────────────┐
+              │ Cloud Run: inference │   │ Cloud Run: ingest/raw   │
+              │ - load model         │   │ - validate schema       │
+              │ - feature lookup     │   │ - stream-insert to BQ   │
+              │ - score, log         │   └────────────┬────────────┘
+              └──────┬───────────────┘                │
+                     │ predictions + features         │ raw events
+                     ▼                                ▼
+              ┌─────────────────────────────────────────────┐
+              │  BigQuery dataset: fraud                    │
+              │  - txns_raw   (immutable event log)         │
+              │  - features   (offline feature table)       │
+              │  - predictions (model outputs + outcomes)   │
+              └──────────────┬──────────────────────────────┘
+                             │
+              Cloud Scheduler ─► Cloud Run jobs (orchestration)
+                             │
+            ┌────────────────┼─────────────────┐
+            ▼                ▼                 ▼
+    ┌──────────────┐ ┌────────────────┐ ┌──────────────────┐
+    │ Feature      │ │ Drift report   │ │ Retrain          │
+    │ pipeline     │ │ (Evidently AI) │ │ (LightGBM)       │
+    │ (BQ SQL)     │ │ → BQ + alert   │ │ → MLflow + GCS   │
+    └──────────────┘ └────────┬───────┘ └────────┬─────────┘
+                              │                  │
+                              ▼                  ▼
+                       Cloud Monitoring    Model registry
+                       custom metric       (GCS + manifest)
+                       + alert policy           │
+                                                │
+                                Cloud Build ◄───┘ (on registry update)
+                                     │
+                                     ▼
+                          Redeploys inference Cloud Run
+
+
 # ⚠️ CRITICAL FINDING: fraud rate is 15x higher in test than train.
 # Root cause (from temporal chart): legitimate transaction volume collapses
 # after step ~400 while fraud volume stays flat. This is distribution shift.

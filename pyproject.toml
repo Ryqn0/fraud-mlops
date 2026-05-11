@@ -1,0 +1,51 @@
+# pyproject.toml
+[project]
+name = "fraud-mlops"
+version = "0.1.0"
+description = "End-to-end fraud detection MLOps on GCP"
+requires-python = ">=3.11"
+
+dependencies = [
+    # Cloud
+    "google-cloud-pubsub>=2.20.0",
+    "google-cloud-bigquery>=3.20.0",
+    "google-cloud-storage>=2.16.0",
+
+    # Data
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "pyarrow>=15.0.0",        # required for BQ + parquet
+
+    # ML (later tickets)
+    "scikit-learn>=1.4.0",
+    "lightgbm>=4.3.0",
+    "mlflow>=2.13.0",
+
+    # Serving (later tickets)
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.6.0",
+
+    # Monitoring (later tickets)
+    "evidently>=0.4.20",
+
+    # Utilities
+    "click>=8.1.0",
+    "python-dotenv>=1.0.0",
+    "tenacity>=8.2.0",        # for retries with backoff
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.4.0",
+    "ipykernel>=6.29.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
