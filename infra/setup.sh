@@ -79,6 +79,19 @@ log "Creating service account: ${SA_NAME}..."
 
 gcloud iam service-accounts create ${SA_NAME} || echo "Service account already exists, skipping creation."
 
+# Wait for the service account to propagate before granting roles.
+# GCP IAM has eventual consistency — new SAs aren't immediately visible
+# to the IAM policy service. Poll until describe succeeds.
+log "Waiting for service account to propagate..."
+for i in {1..30}; do
+  if gcloud iam service-accounts describe ${SA_EMAIL} \
+       --project=${PROJECT_ID} >/dev/null 2>&1; then
+    log "Service account is visible after ${i}s."
+    break
+  fi
+  sleep 1
+done
+
 log "Granting IAM roles..."
 # TODO: grant each of the following roles to $SA_EMAIL on $PROJECT_ID
 # Use a loop or separate lines — your choice
