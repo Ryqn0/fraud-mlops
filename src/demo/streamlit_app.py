@@ -37,8 +37,14 @@ if submitted:
         "subscription": "demo"
     }
     # Call serve endpoint locally (or Cloud Run)
-    response = requests.post("http://localhost:8081/pubsub", json=envelope)
-    result = response.json()
+    try:
+        with st.spinner("Scoring transaction..."):
+            response = requests.post("http://localhost:8081/pubsub", json=envelope)
+        result = response.json()
+    except requests.exceptions.ConnectionError:
+        st.error("❌ Inference service not running. Start uvicorn on port 8081 first.")
+        st.stop()
+    
 
     col1, col2 = st.columns(2)
     col1.metric("Fraud score", f"{result['fraud_score']:.6f}")
