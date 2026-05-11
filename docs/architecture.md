@@ -133,3 +133,9 @@ Wait ~30s after step 4a, then verify:
 bq query --use_legacy_sql=false \
   "SELECT COUNT(*) as row_count FROM \`fraud-mlops-portfolio.fraud.txns_raw\`"
 ```
+
+# 4. Restore streaming pipeline
+bash infra/deploy_ingest.sh    # ingest service + subscription
+
+# 5. Restore inference pipeline  
+bash infra/deploy_serve.sh     # serve service + subscription

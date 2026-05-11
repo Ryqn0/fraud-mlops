@@ -68,6 +68,7 @@ gcloud artifacts repositories delete ${AR_REPO} --location=${REGION} --project=$
 # ── 5.5. Cloud Run services ───────────────────────────────────────────────────
 log "Deleting Cloud Run services..."
 gcloud run services delete ingest --region=${REGION} --project=${PROJECT_ID} --quiet || echo "Service 'ingest' does not exist, skipping."
+gcloud run services delete serve --region=${REGION} --project=${PROJECT_ID} --quiet || echo "Service 'serve' does not exist, skipping."
 
 # ── 6. Service account ────────────────────────────────────────────────────────
 log "Deleting service account..."

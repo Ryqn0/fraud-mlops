@@ -18,6 +18,9 @@ import mlflow.lightgbm
 from src.train.data import load_data, FEATURE_COLS
 from src.train.model import train_model, evaluate, get_feature_importance, BASE_PARAMS
 
+import joblib
+from google.cloud import storage as gcs
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -26,7 +29,9 @@ log = logging.getLogger("train")
 
 EXPERIMENT_NAME = "fraud-detection"
 MODEL_DIR       = Path("models")
-
+GCS_BUCKET  = os.environ.get("GCS_BUCKET", "fraud-mlops-portfolio-fraud-artifacts")
+MODEL_GCS_PATH = "models/lgbm_fraud.pkl"
+PROJECT_ID = os.environ.get("PROJECT_ID", "fraud-mlops-portfolio")
 
 def run_training() -> None:
     # ── MLflow setup ──────────────────────────────────────────────────────────
@@ -75,6 +80,16 @@ def run_training() -> None:
         # Hint: mlflow.lightgbm.log_model(model, artifact_path="model")
 
         mlflow.lightgbm.log_model(model, name="model")
+
+        # ── Save model to GCS for serving ────────────────────────────────────────────
+        local_model_path = MODEL_DIR / "lgbm_fraud.pkl"
+        joblib.dump(model, local_model_path)
+
+        storage_client = gcs.Client(project=PROJECT_ID)
+        bucket = storage_client.bucket(GCS_BUCKET)
+        blob = bucket.blob(MODEL_GCS_PATH)
+        blob.upload_from_filename(str(local_model_path))
+        log.info("Model saved to gs://%s/%s", GCS_BUCKET, MODEL_GCS_PATH)
 
         # TODO 6: get the MLflow run ID and log it.
         # Hint: mlflow.active_run().info.run_id
