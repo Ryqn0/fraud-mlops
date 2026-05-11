@@ -59,8 +59,6 @@ log "Deleting GCS bucket..."
 
 gcloud storage rm -r gs://${GCS_BUCKET} --project=${PROJECT_ID} --quiet || echo "Bucket does not exist, skipping deletion."
 
-
-
 # ── 5. Artifact Registry repository ──────────────────────────────────────────
 log "Deleting Artifact Registry repo..."
 # TODO: delete the repo

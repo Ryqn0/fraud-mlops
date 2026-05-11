@@ -5,6 +5,13 @@
 # Safe to re-run — most commands are idempotent.
 # Estimated cost to provision: $0.00 (billed on usage, not creation)
 
+
+# After setup, restore application layer manually:
+# 1. bq query ... < src/features/schema.sql   (recreate BQ tables)
+# 2. gcloud run deploy ingest ...              (redeploy services)
+# 3. python -m src.producer.replay ...         (repopulate data)
+# setup.sh only restores infra skeleton — not data or deployments.
+
 set -euo pipefail
 
 # Ensure bq CLI finds Python on Windows/Git Bash

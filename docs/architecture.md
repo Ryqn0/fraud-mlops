@@ -100,3 +100,36 @@ Replay producer  ──┐
 | Root cause of shift | Legit volume collapses after step 400 | Monitor fraud rate in production |
 | Account overlap train/test | 271 accounts | Test is effectively unseen accounts |
 | T_split | 600 (steps 1–600 train, 601–743 test) | Locked |
+
+## Resuming after teardown
+
+Run in order:
+
+```bash
+# 1. Restore GCP infrastructure
+bash infra/setup.sh
+
+# 2. Restore BQ tables
+bq query --use_legacy_sql=false \
+  --project_id=fraud-mlops-portfolio < src/features/schema.sql
+
+# 3. Restore streaming pipeline
+bash infra/deploy_ingest.sh
+
+# 4a. Stream a sample (real-time path)
+python -m src.producer.replay \
+  --csv data/paysim.csv \
+  --project fraud-mlops-portfolio \
+  --topic transactions \
+  --seconds-per-step 0.01 \
+  --max-rows 10000
+
+# 4b. OR bulk-load full history (training path)
+python scripts/bulk_load.py --csv data/paysim.csv
+```
+
+Wait ~30s after step 4a, then verify:
+```bash
+bq query --use_legacy_sql=false \
+  "SELECT COUNT(*) as row_count FROM \`fraud-mlops-portfolio.fraud.txns_raw\`"
+```
