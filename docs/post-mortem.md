@@ -1,0 +1,1 @@
+"BigQuery streaming buffer is immutable for ~90 minutes after insert. DELETE/UPDATE statements fail until flush. Test data is namespaced with prefix test-* and filtered at query time."

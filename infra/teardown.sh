@@ -33,6 +33,9 @@ log "Deleting Pub/Sub subscriptions..."
 # TODO: delete both subscriptions
 # || true — because if they don't exist, that's fine
 
+# Reset push config before deletion to avoid dangling config warnings
+gcloud pubsub subscriptions modify-push-config ${PUBSUB_SUB_INGEST} --push-endpoint="" --project=${PROJECT_ID} 2>/dev/null || true
+
 gcloud pubsub subscriptions delete ${PUBSUB_SUB_INGEST} --project=${PROJECT_ID} || echo "Subscription ${PUBSUB_SUB_INGEST} does not exist, skipping deletion."
 gcloud pubsub subscriptions delete ${PUBSUB_SUB_INFER} --project=${PROJECT_ID} || echo "Subscription ${PUBSUB_SUB_INFER} does not exist, skipping deletion."
 
@@ -56,11 +59,17 @@ log "Deleting GCS bucket..."
 
 gcloud storage rm -r gs://${GCS_BUCKET} --project=${PROJECT_ID} --quiet || echo "Bucket does not exist, skipping deletion."
 
+
+
 # ── 5. Artifact Registry repository ──────────────────────────────────────────
 log "Deleting Artifact Registry repo..."
 # TODO: delete the repo
 
 gcloud artifacts repositories delete ${AR_REPO} --location=${REGION} --project=${PROJECT_ID} --quiet || echo "Repository does not exist, skipping deletion."
+
+# ── 5.5. Cloud Run services ───────────────────────────────────────────────────
+log "Deleting Cloud Run services..."
+gcloud run services delete ingest --region=${REGION} --project=${PROJECT_ID} --quiet || echo "Service 'ingest' does not exist, skipping."
 
 # ── 6. Service account ────────────────────────────────────────────────────────
 log "Deleting service account..."

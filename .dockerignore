@@ -1,0 +1,45 @@
+# .dockerignore — keep build context small
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Data (never bake data into images)
+data/
+*.csv
+*.zip
+*.parquet
+
+# Notebooks
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# ML artifacts
+mlruns/
+wandb/
+*.pkl
+*.joblib
+
+# Tests
+tests/
+
+# Git and IDE
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Project metadata not needed in container
+README.md
+docs/
+infra/
+Makefile

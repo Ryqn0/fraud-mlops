@@ -1,0 +1,9 @@
+{
+  "message": {
+    "data": "eyJldmVudF9pZCI6ICJ0ZXN0LWFiYy0xMjMiLCAic3RlcCI6IDEsICJ0eXBlIjogIlBBWU1FTlQiLCAiYW1vdW50IjogOTgzOS42NCwgIm5hbWVfb3JpZyI6ICJDMTIzMTAwNjgxNSIsICJvbGRfYmFsYW5jZV9vcmciOiAxNzAxMzYuMCwgIm5ld19iYWxhbmNlX29yZyI6IDE2MDI5Ni4zNiwgIm5hbWVfZGVzdCI6ICJNMTk3OTc4NzE1NSIsICJvbGRfYmFsYW5jZV9kZXN0IjogMC4wLCAibmV3X2JhbGFuY2VfZGVzdCI6IDAuMCwgImlzX2ZyYXVkIjogMCwgImlzX2ZsYWdnZWRfZnJhdWQiOiAwfQ==",
+    "messageId": "test-msg-001",
+    "attributes": {"event_id": "test-abc-123", "step": "1"},
+    "publishTime": "2026-05-11T15:00:00.000Z"
+  },
+  "subscription": "projects/fraud-mlops-portfolio/subscriptions/transactions-ingest-sub"
+}

@@ -47,6 +47,36 @@
                           Redeploys inference Cloud Run
 
 
+Replay producer  ──┐
+                   │  publish
+                   ▼
+            ┌─────────────────┐
+            │ Pub/Sub topic   │
+            └────────┬────────┘
+                     │ fan-out (1 message → 2 subscriptions)
+        ┌────────────┴────────────┐
+        ▼                         ▼
+┌────────────────┐         ┌────────────────┐
+│ ingest sub     │         │ infer sub      │
+│ (push later)   │         │ (push later)   │
+└────────┬───────┘         └────────────────┘
+         │ HTTP POST              (Ticket 8)
+         ▼
+┌────────────────────────────────┐
+│ Cloud Run: ingest service      │
+│   POST /pubsub                 │
+│   - parse Pub/Sub envelope     │
+│   - decode base64 payload      │
+│   - validate with Pydantic     │
+│   - streaming insert → BQ      │
+│   - 200 = ack, 500 = retry     │
+│   GET /health                  │
+└────────────┬───────────────────┘
+             │ streaming insert
+             ▼
+   fraud.txns_raw (BigQuery)
+
+
 # ⚠️ CRITICAL FINDING: fraud rate is 15x higher in test than train.
 # Root cause (from temporal chart): legitimate transaction volume collapses
 # after step ~400 while fraud volume stays flat. This is distribution shift.
