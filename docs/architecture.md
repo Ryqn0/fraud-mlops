@@ -139,3 +139,12 @@ bash infra/deploy_ingest.sh    # ingest service + subscription
 
 # 5. Restore inference pipeline  
 bash infra/deploy_serve.sh     # serve service + subscription
+
+# 5b. Rebuild and push Docker images (needed after full teardown)
+gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+docker build --platform linux/amd64 -f src/ingest/Dockerfile -t ingest:v1 . && \
+  docker tag ingest:v1 europe-west1-docker.pkg.dev/fraud-mlops-portfolio/fraud-images/ingest:v1 && \
+  docker push europe-west1-docker.pkg.dev/fraud-mlops-portfolio/fraud-images/ingest:v1
+docker build --platform linux/amd64 -f src/serve/Dockerfile -t serve:v1 . && \
+  docker tag serve:v1 europe-west1-docker.pkg.dev/fraud-mlops-portfolio/fraud-images/serve:v1 && \
+  docker push europe-west1-docker.pkg.dev/fraud-mlops-portfolio/fraud-images/serve:v1

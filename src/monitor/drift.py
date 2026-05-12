@@ -1,8 +1,15 @@
 # src/monitor/drift.py
 """
-Drift monitoring pipeline.
+Drift monitoring pipeline using scipy.stats.
 Compares reference features (train period, step <= 600)
 against current features (test period, step > 600).
+
+Statistical tests:
+  - KS test  : continuous features (amount, balance_diff_orig, tx_amount_sum_24h)
+  - Chi-squared: binary features (type_is_transfer, type_is_cashout, account_drained)
+  - KS test  : integer features (tx_count_24h)
+
+Dataset drift = True when >= 50% of features drift.
 
 Writes results to:
   - fraud.drift_reports (BigQuery)
@@ -10,7 +17,7 @@ Writes results to:
 
 Usage:
     python -m src.monitor.drift
-    python -m src.monitor.drift --inject-drift   # for demo: artificially drifts current data
+    python -m src.monitor.drift --inject-drift
 """
 from __future__ import annotations
 
@@ -20,10 +27,8 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-import numpy as np
 import pandas as pd
-from evidently.metric_preset import DataDriftPreset
-from evidently.report import Report
+from scipy import stats
 from google.cloud import bigquery, monitoring_v3
 
 logging.basicConfig(
@@ -43,122 +48,139 @@ FEATURE_COLS = [
     "tx_amount_sum_24h", "tx_count_24h",
 ]
 
+# Features that are binary (0/1) — use chi-squared test
+BINARY_FEATURES = {"type_is_transfer", "type_is_cashout", "account_drained"}
+# Drift threshold: p-value below this → drift detected
+P_VALUE_THRESHOLD = 0.05
+# Dataset drift: True when this fraction of features drift
+DATASET_DRIFT_THRESHOLD = 0.5
+
 
 # ── Data loading ───────────────────────────────────────────────────────────────
 def load_reference(client: bigquery.Client) -> pd.DataFrame:
+    sql = f"""
+    SELECT {', '.join(FEATURE_COLS)}
+    FROM `{FEATURES_TBL}`
+    WHERE step <= {T_SPLIT}
+    LIMIT 50000
     """
-    Load reference dataset: features from the training period (step <= T_SPLIT).
-    This is the baseline — what the model was trained on.
-
-    TODO 1: write a SQL query that selects all FEATURE_COLS from FEATURES_TBL
-            where step <= T_SPLIT.
-            Limit to 50,000 rows to keep the report fast (use TABLESAMPLE or LIMIT).
-    Return a DataFrame with only the FEATURE_COLS columns.
-    """
-    raise NotImplementedError
+    return client.query(sql).result().to_dataframe()
 
 
 def load_current(client: bigquery.Client) -> pd.DataFrame:
+    sql = f"""
+    SELECT {', '.join(FEATURE_COLS)}
+    FROM `{FEATURES_TBL}`
+    WHERE step > {T_SPLIT}
     """
-    Load current dataset: features from the test period (step > T_SPLIT).
-    This simulates what the model sees in production today.
-
-    TODO 2: same as load_reference but WHERE step > T_SPLIT.
-    """
-    raise NotImplementedError
+    return client.query(sql).result().to_dataframe()
 
 
 def inject_drift(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Artificially drift the current data for demo purposes.
-    Multiplies amount and tx_amount_sum_24h by 10x,
-    flips account_drained to simulate fraudsters changing behaviour.
-
-    This proves your monitoring pipeline alerts correctly.
-    Do NOT use in production — for demo only.
-    """
+    """Artificially drift current data for demo. Do NOT use in production."""
     df = df.copy()
     df["amount"]            = df["amount"] * 10
     df["tx_amount_sum_24h"] = df["tx_amount_sum_24h"] * 10
-    df["account_drained"]   = 1 - df["account_drained"]  # flip 0↔1
+    df["account_drained"]   = 1 - df["account_drained"]
     log.info("⚠️  Synthetic drift injected into current data.")
     return df
 
 
-# ── Evidently report ───────────────────────────────────────────────────────────
-def run_evidently(
+# ── Drift computation ─────────────────────────────────────────────────────────
+def _ks_test(ref: pd.Series, curr: pd.Series) -> tuple[float, float]:
+    """KS test for continuous/integer features. Returns (statistic, p_value)."""
+    stat, p_value = stats.ks_2samp(ref.dropna(), curr.dropna())
+    return float(stat), float(p_value)
+
+
+def _chi2_test(ref: pd.Series, curr: pd.Series) -> tuple[float, float]:
+    """Chi-squared test for binary features. Returns (statistic, p_value)."""
+    ref_0  = int((ref == 0).sum())
+    ref_1  = int((ref == 1).sum())
+    curr_0 = int((curr == 0).sum())
+    curr_1 = int((curr == 1).sum())
+
+    # Need non-zero counts in all cells for chi-squared to be valid
+    if ref_0 == 0 or ref_1 == 0 or curr_0 == 0 or curr_1 == 0:
+        return 0.0, 1.0   # no test possible → no drift
+
+    chi2, p_value, _, _ = stats.chi2_contingency(
+        [[ref_0, ref_1], [curr_0, curr_1]]
+    )
+    return float(chi2), float(p_value)
+
+
+def compute_drift(
     reference: pd.DataFrame,
     current: pd.DataFrame,
-) -> dict:
+    report_id: str,
+) -> list[dict]:
     """
-    Run Evidently DataDrift report and return the raw result dict.
+    Compute per-feature drift using scipy.stats.
+    Returns one dict per feature matching the drift_reports BQ schema.
 
-    TODO 3: create a Report with DataDriftPreset(), run it on reference and current,
-            return report.as_dict().
-    Hint:
-        report = Report(metrics=[DataDriftPreset()])
-        report.run(reference_data=reference, current_data=current)
-        return report.as_dict()
+    KS test for continuous features — statistic D ∈ [0,1], higher = more drift.
+    Chi-squared for binary features — statistic = chi2, p-value decides drift.
+    Dataset drift = True when >= 50% of features show drift.
     """
-    raise NotImplementedError
+    now = datetime.now(timezone.utc)
+    rows = []
+
+    for col in FEATURE_COLS:
+        if col in BINARY_FEATURES:
+            stat, p_value = _chi2_test(reference[col], current[col])
+            stat_test = "chi2"
+            # For chi2, use p-value itself as the drift score (lower = more drift)
+            drift_score = 1.0 - p_value
+        else:
+            stat, p_value = _ks_test(reference[col], current[col])
+            stat_test = "ks"
+            drift_score = stat   # KS statistic directly: 0 = no drift, 1 = max drift
+
+        drift_detected = bool(p_value < P_VALUE_THRESHOLD)
+
+        rows.append({
+            "report_id":      report_id,
+            "computed_at":    now,
+            "reference_rows": len(reference),
+            "current_rows":   len(current),
+            "feature":        col,
+            "drift_score":    drift_score,
+            "drift_detected": drift_detected,
+            "stat_test":      stat_test,
+            "dataset_drift":  False,   # updated below after all features computed
+        })
+
+    # Compute dataset-level drift flag
+    n_drifted = sum(r["drift_detected"] for r in rows)
+    dataset_drift = (n_drifted / len(rows)) >= DATASET_DRIFT_THRESHOLD
+    for row in rows:
+        row["dataset_drift"] = dataset_drift
+
+    log.info(
+        "%d / %d features drifted (threshold: p < %.2f). Dataset drift: %s",
+        n_drifted, len(rows), P_VALUE_THRESHOLD, dataset_drift,
+    )
+    return rows
 
 
-def extract_metrics(report_dict: dict, report_id: str) -> list[dict]:
-    """
-    Parse Evidently's report dict into flat rows for BigQuery.
-    Returns one dict per feature.
-
-    Evidently's output structure (navigate carefully):
-        report_dict["metrics"][0]["result"] → dataset-level results
-        report_dict["metrics"][0]["result"]["drift_by_columns"] → per-feature
-
-    TODO 4: parse the report dict to build a list of dicts, one per feature.
-    Each dict must match the drift_reports schema:
-        report_id, computed_at, reference_rows, current_rows,
-        feature, drift_score, drift_detected, stat_test, dataset_drift
-
-    Hints:
-        result = report_dict["metrics"][0]["result"]
-        dataset_drift = result["dataset_drift"]          # bool
-        drift_by_cols = result["drift_by_columns"]       # dict keyed by feature name
-        for feature, info in drift_by_cols.items():
-            info["drift_score"]     # float
-            info["drift_detected"]  # bool
-            info["stattest_name"]   # string
-
-    Log a summary: "X / Y features drifted. Dataset drift: True/False"
-    """
-    raise NotImplementedError
-
-
-# ── BigQuery write ─────────────────────────────────────────────────────────────
+# ── BigQuery write ────────────────────────────────────────────────────────────
 def write_to_bq(client: bigquery.Client, rows: list[dict]) -> None:
-    """
-    Stream drift report rows into fraud.drift_reports.
+    bq_rows = []
+    for row in rows:
+        r = dict(row)
+        r["computed_at"] = r["computed_at"].isoformat()
+        bq_rows.append(r)
 
-    TODO 5: use client.insert_rows_json(DRIFT_TBL, rows).
-    Convert computed_at to ISO string before inserting.
-    Log how many rows were written.
-    Check for errors and log them.
-    """
-    raise NotImplementedError
+    errors = client.insert_rows_json(DRIFT_TBL, bq_rows)
+    if errors:
+        log.error("BQ insert errors: %s", errors)
+    else:
+        log.info("Inserted %d rows into %s", len(bq_rows), DRIFT_TBL)
 
 
-# ── Cloud Monitoring ───────────────────────────────────────────────────────────
+# ── Cloud Monitoring ──────────────────────────────────────────────────────────
 def publish_to_monitoring(rows: list[dict]) -> None:
-    """
-    Publish drift metrics to Cloud Monitoring as custom time series.
-    This enables alerting policies in GCP.
-
-    Publishes two metric types:
-      custom.googleapis.com/fraud/feature_drift_score  (one per feature)
-      custom.googleapis.com/fraud/dataset_drift        (0 or 1, overall)
-
-    TODO 6: for each row in rows, publish the drift_score with label feature=row["feature"].
-            Also publish a single dataset_drift metric (0.0 or 1.0).
-
-    Use this helper — don't implement from scratch:
-    """
     mon = monitoring_v3.MetricServiceClient()
     project_name = f"projects/{PROJECT_ID}"
 
@@ -180,14 +202,23 @@ def publish_to_monitoring(rows: list[dict]) -> None:
         series.points = [point]
         mon.create_time_series(name=project_name, time_series=[series])
 
-    # TODO 6a: for each row, call _publish("feature_drift_score", row["drift_score"],
-    #           labels={"feature": row["feature"]})
-    # TODO 6b: call _publish("dataset_drift", 1.0 if any row has dataset_drift else 0.0)
-    # TODO 6c: log "Published X metrics to Cloud Monitoring"
-    raise NotImplementedError
+    for row in rows:
+        _publish(
+            "feature_drift_score",
+            row["drift_score"],
+            labels={"feature": row["feature"]},
+        )
+
+    dataset_drift_value = 1.0 if any(r["dataset_drift"] for r in rows) else 0.0
+    _publish("dataset_drift", dataset_drift_value)
+
+    log.info(
+        "Published %d feature drift scores + dataset_drift=%.0f to Cloud Monitoring",
+        len(rows), dataset_drift_value,
+    )
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────────────────────────
 def main(inject: bool = False) -> None:
     client = bigquery.Client(project=PROJECT_ID)
     report_id = uuid.uuid4().hex
@@ -203,10 +234,7 @@ def main(inject: bool = False) -> None:
 
     log.info("Reference: %d rows | Current: %d rows", len(reference), len(current))
 
-    log.info("Running Evidently drift report...")
-    report_dict = run_evidently(reference, current)
-
-    rows = extract_metrics(report_dict, report_id)
+    rows = compute_drift(reference, current, report_id)
 
     log.info("Writing drift report to BigQuery...")
     write_to_bq(client, rows)
@@ -219,7 +247,9 @@ def main(inject: bool = False) -> None:
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--inject-drift", action="store_true",
-                   help="Artificially drift current data (for demo purposes)")
+    p.add_argument(
+        "--inject-drift", action="store_true",
+        help="Artificially drift current data (for demo purposes only)",
+    )
     args = p.parse_args()
     main(inject=args.inject_drift)
