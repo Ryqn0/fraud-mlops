@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 import pandas as pd
 from scipy import stats
 from google.cloud import bigquery, monitoring_v3
+import numpy as np
 
 logging.basicConfig(
     level=logging.INFO,
@@ -163,6 +164,21 @@ def compute_drift(
     )
     return rows
 
+def compute_psi(reference: pd.Series, current: pd.Series, n_bins: int = 10) -> float:
+    """Compute Population Stability Index (PSI) for a single feature."""
+    # Create bins based on reference data quantiles
+    bins = pd.qcut(reference, q=n_bins, duplicates="drop")
+    ref_counts = bins.value_counts().sort_index()
+    curr_counts = pd.cut(current, bins=bins.cat.categories).value_counts().sort_index()
+
+    # Add small value to avoid division by zero
+    ref_perc = (ref_counts + 1) / len(reference)
+    curr_perc = (curr_counts + 1) / len(current)
+
+    # Compute PSI
+    psi = ((curr_perc - ref_perc) * np.log(curr_perc / ref_perc)).sum()
+    return float(psi)
+
 
 # ── BigQuery write ────────────────────────────────────────────────────────────
 def write_to_bq(client: bigquery.Client, rows: list[dict]) -> None:
@@ -235,6 +251,8 @@ def main(inject: bool = False) -> None:
     log.info("Reference: %d rows | Current: %d rows", len(reference), len(current))
 
     rows = compute_drift(reference, current, report_id)
+
+    log.info("Computed psi for 'amount' column is %.2f.", compute_psi(reference["amount"], current["amount"]))
 
     log.info("Writing drift report to BigQuery...")
     write_to_bq(client, rows)

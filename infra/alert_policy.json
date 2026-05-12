@@ -1,0 +1,27 @@
+{
+  "displayName": "Fraud Dataset Drift Alert",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "dataset_drift > 0.9",
+      "conditionThreshold": {
+        "filter": "metric.type=\"custom.googleapis.com/fraud/dataset_drift\" AND resource.type=\"global\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.9,
+        "duration": "0s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_MEAN"
+          }
+        ]
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/fraud-mlops-portfolio/notificationChannels/6928095907243872789"
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

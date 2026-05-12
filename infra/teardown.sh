@@ -70,6 +70,14 @@ log "Deleting Cloud Run services..."
 gcloud run services delete ingest --region=${REGION} --project=${PROJECT_ID} --quiet || echo "Service 'ingest' does not exist, skipping."
 gcloud run services delete serve --region=${REGION} --project=${PROJECT_ID} --quiet || echo "Service 'serve' does not exist, skipping."
 
+# Add to infra/teardown.sh before service account deletion
+log "Deleting alert policies..."
+gcloud alpha monitoring policies list \
+  --project=${PROJECT_ID} \
+  --format="value(name)" | \
+  xargs -I{} gcloud alpha monitoring policies delete {} \
+  --project=${PROJECT_ID} --quiet 2>/dev/null || true
+
 # ── 6. Service account ────────────────────────────────────────────────────────
 log "Deleting service account..."
 # TODO: delete the service account
