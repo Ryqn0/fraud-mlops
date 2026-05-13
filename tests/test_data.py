@@ -4,8 +4,9 @@ Tests for data pipeline logic that doesn't require BigQuery.
 The BQ loading functions are I/O wrappers tested in integration only.
 """
 import pandas as pd
-import pytest
-import sys, os
+# import pytest
+import sys
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.train.data import FEATURE_COLS, LABEL_COL, T_SPLIT

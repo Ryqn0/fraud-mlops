@@ -3,8 +3,8 @@
 Unit tests for feature computation.
 These run without any GCP connection — pure Python.
 """
-import pytest
-from unittest.mock import MagicMock
+# import pytest
+# from unittest.mock import MagicMock
 import sys
 import os
 
@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # ── We need a Transaction-like object to test compute_static_features ─────────
 # Import the function directly — it has no GCP dependencies
-from src.serve.app import compute_static_features, FEATURE_COLS
+from src.serve.app import compute_static_features
 
 
 class FakeTransaction:

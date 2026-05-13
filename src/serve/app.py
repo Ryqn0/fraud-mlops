@@ -9,7 +9,7 @@ Run locally:
 from __future__ import annotations
 
 import base64
-import json
+# import json
 import logging
 import os
 import tempfile
@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 import joblib
 import lightgbm as lgb
-import numpy as np
+# import numpy as np
 from fastapi import FastAPI, HTTPException, Request
 from google.cloud import bigquery, storage as gcs
 from pydantic import BaseModel, Field
