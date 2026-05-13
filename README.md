@@ -9,3 +9,5 @@ Add the --ssl-no-revoke flag
 > metrics due to adversarial fraud patterns, label noise, and class overlap.
 > The engineering pipeline, monitoring, and MLOps practices are the portfolio
 > artefact — not the raw metric values.
+
+Add a note to your README: "Services must be provisioned via infra/deploy_serve.sh before CI/CD auto-deploy takes effect."
