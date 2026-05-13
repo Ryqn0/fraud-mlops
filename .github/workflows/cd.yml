@@ -1,0 +1,72 @@
+# .github/workflows/cd.yml
+# Runs on push to main only.
+# Builds Docker images and pushes to Artifact Registry.
+# Deploy step is manual — uncomment to enable auto-deploy.
+
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PROJECT_ID: fraud-mlops-portfolio
+  REGION: europe-west1
+  AR_REPO: europe-west1-docker.pkg.dev/fraud-mlops-portfolio/fraud-images
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for Workload Identity Federation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push ingest image
+        run: |
+          docker build --platform linux/amd64 \
+            -f src/ingest/Dockerfile \
+            -t ${{ env.AR_REPO }}/ingest:${{ github.sha }} \
+            -t ${{ env.AR_REPO }}/ingest:latest .
+          docker push ${{ env.AR_REPO }}/ingest:${{ github.sha }}
+          docker push ${{ env.AR_REPO }}/ingest:latest
+
+      - name: Build and push serve image
+        run: |
+          docker build --platform linux/amd64 \
+            -f src/serve/Dockerfile \
+            -t ${{ env.AR_REPO }}/serve:${{ github.sha }} \
+            -t ${{ env.AR_REPO }}/serve:latest .
+          docker push ${{ env.AR_REPO }}/serve:${{ github.sha }}
+          docker push ${{ env.AR_REPO }}/serve:latest
+
+      # ── Optional: auto-deploy to Cloud Run ──────────────────────────────────
+      # Uncomment to enable continuous deployment.
+      # Best practice: add a manual approval step before this in production.
+      #
+      # - name: Deploy ingest to Cloud Run
+      #   run: |
+      #     gcloud run deploy ingest \
+      #       --image=${{ env.AR_REPO }}/ingest:${{ github.sha }} \
+      #       --region=${{ env.REGION }} \
+      #       --project=${{ env.PROJECT_ID }}
+      #
+      # - name: Deploy serve to Cloud Run
+      #   run: |
+      #     gcloud run deploy serve \
+      #       --image=${{ env.AR_REPO }}/serve:${{ github.sha }} \
+      #       --region=${{ env.REGION }} \
+      #       --project=${{ env.PROJECT_ID }}

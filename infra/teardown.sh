@@ -78,6 +78,15 @@ gcloud alpha monitoring policies list \
   xargs -I{} gcloud alpha monitoring policies delete {} \
   --project=${PROJECT_ID} --quiet 2>/dev/null || true
 
+# ── Alert policies ────────────────────────────────────────────────────────────
+log "Deleting alert policies..."
+gcloud alpha monitoring policies list \
+  --project=${PROJECT_ID} --format="value(name)" 2>/dev/null | \
+  while read -r policy; do
+    gcloud alpha monitoring policies delete "${policy}" \
+      --project=${PROJECT_ID} --quiet 2>/dev/null || true
+  done
+
 # ── 6. Service account ────────────────────────────────────────────────────────
 log "Deleting service account..."
 # TODO: delete the service account

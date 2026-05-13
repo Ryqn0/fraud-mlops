@@ -106,26 +106,44 @@ Replay producer  ──┐
 Run in order:
 
 ```bash
-# 1. Restore GCP infrastructure
+# 1. Infrastructure
 bash infra/setup.sh
 
-# 2. Restore BQ tables
+# 2. BigQuery tables
 bq query --use_legacy_sql=false \
   --project_id=fraud-mlops-portfolio < src/features/schema.sql
 
-# 3. Restore streaming pipeline
-bash infra/deploy_ingest.sh
+# 3. Rebuild and push Docker images
+gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+docker build --platform linux/amd64 -f src/ingest/Dockerfile -t ingest:v1 . && \
+  docker tag ingest:v1 europe-west1-docker.pkg.dev/fraud-mlops-portfolio/fraud-images/ingest:v1 && \
+  docker push europe-west1-docker.pkg.dev/fraud-mlops-portfolio/fraud-images/ingest:v1
+docker build --platform linux/amd64 -f src/serve/Dockerfile -t serve:v1 . && \
+  docker tag serve:v1 europe-west1-docker.pkg.dev/fraud-mlops-portfolio/fraud-images/serve:v1 && \
+  docker push europe-west1-docker.pkg.dev/fraud-mlops-portfolio/fraud-images/serve:v1
 
-# 4a. Stream a sample (real-time path)
-python -m src.producer.replay \
-  --csv data/paysim.csv \
-  --project fraud-mlops-portfolio \
-  --topic transactions \
-  --seconds-per-step 0.01 \
-  --max-rows 10000
+# 4. Upload model
+gcloud storage cp models/lgbm_fraud.pkl \
+  gs://fraud-mlops-portfolio-fraud-artifacts/models/lgbm_fraud.pkl
 
-# 4b. OR bulk-load full history (training path)
+# 5. Load data and compute features
 python scripts/bulk_load.py --csv data/paysim.csv
+python -m src.features.lookup
+
+# 6. Deploy services
+bash infra/deploy_ingest.sh
+bash infra/deploy_serve.sh
+
+# 7. Recreate alert policy
+gcloud alpha monitoring channels create \
+  --display-name="Fraud ML Alerts" \
+  --type=email \
+  --channel-labels=email_address=dungryan0@gmail.com \
+  --project=fraud-mlops-portfolio
+# Update infra/alert_policy.json with new channel ID, then:
+gcloud alpha monitoring policies create \
+  --policy-from-file=infra/alert_policy.json \
+  --project=fraud-mlops-portfolio
 ```
 
 Wait ~30s after step 4a, then verify:
