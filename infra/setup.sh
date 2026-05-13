@@ -120,6 +120,7 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${
 gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${SA_EMAIL}" --role="roles/run.invoker"
 gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${SA_EMAIL}" --role="roles/storage.objectAdmin"
 gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${SA_EMAIL}" --role="roles/aiplatform.user"
+gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${SA_EMAIL}" --role="roles/artifactregistry.writer"
 
 log "✅  Setup complete."
 log "Resources provisioned in: ${REGION}"
