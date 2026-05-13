@@ -85,6 +85,7 @@ log "Creating service account: ${SA_NAME}..."
 # Hint: gcloud iam service-accounts create ...
 
 gcloud iam service-accounts create ${SA_NAME} || echo "Service account already exists, skipping creation."
+gcloud iam service-accounts add-iam-policy-binding ${SA_EMAIL} --member="serviceAccount:${SA_EMAIL}" --role="roles/iam.serviceAccountUser" --project=${PROJECT_ID}
 
 # Wait for the service account to propagate before granting roles.
 # GCP IAM has eventual consistency — new SAs aren't immediately visible
