@@ -57,16 +57,16 @@ jobs:
       # Uncomment to enable continuous deployment.
       # Best practice: add a manual approval step before this in production.
       #
-      # - name: Deploy ingest to Cloud Run
-      #   run: |
-      #     gcloud run deploy ingest \
-      #       --image=${{ env.AR_REPO }}/ingest:${{ github.sha }} \
-      #       --region=${{ env.REGION }} \
-      #       --project=${{ env.PROJECT_ID }}
-      #
-      # - name: Deploy serve to Cloud Run
-      #   run: |
-      #     gcloud run deploy serve \
-      #       --image=${{ env.AR_REPO }}/serve:${{ github.sha }} \
-      #       --region=${{ env.REGION }} \
-      #       --project=${{ env.PROJECT_ID }}
+      - name: Deploy ingest to Cloud Run
+        run: |
+          gcloud run deploy ingest \
+            --image=${{ env.AR_REPO }}/ingest:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }}
+      
+      - name: Deploy serve to Cloud Run
+        run: |
+          gcloud run deploy serve \
+            --image=${{ env.AR_REPO }}/serve:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }}

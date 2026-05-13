@@ -121,6 +121,7 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${
 gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${SA_EMAIL}" --role="roles/storage.objectAdmin"
 gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${SA_EMAIL}" --role="roles/aiplatform.user"
 gcloud projects add-iam-policy-binding ${PROJECT_ID} --member="serviceAccount:${SA_EMAIL}" --role="roles/artifactregistry.writer"
+gcloud projects add-iam-policy-binding fraud-mlops-portfolio --member="serviceAccount:fraud-runner@fraud-mlops-portfolio.iam.gserviceaccount.com" --role="roles/run.developer"
 
 log "✅  Setup complete."
 log "Resources provisioned in: ${REGION}"
