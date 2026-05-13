@@ -39,8 +39,8 @@ USER appuser
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
 # Cloud Run sets $PORT (default 8080). Bind uvicorn to it.
-# Shell form is needed to expand $PORT; exec form would treat it as a literal.
+# Using JSON form to properly handle OS signals (SIGTERM/SIGINT).
 ENV PORT=8080
 EXPOSE 8080
 
-CMD exec uvicorn src.ingest.main:app --host 0.0.0.0 --port ${PORT}
+CMD ["sh", "-c", "exec uvicorn src.ingest.main:app --host 0.0.0.0 --port ${PORT}"]
